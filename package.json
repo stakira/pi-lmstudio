@@ -1,0 +1,14 @@
+{
+  "name": "pi-lmstudio",
+  "version": "1.0.0",
+  "author": "stakira",
+  "description": "LM Studio model provider extension for Pi coding agent",
+  "keywords": [
+    "lm-studio",
+    "pi-package"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  }
+}
