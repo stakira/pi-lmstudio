@@ -10,6 +10,14 @@ interface Config {
   url: string;
 }
 
+function resolveValue(value: string): string {
+  if (value.startsWith('$')) {
+    const envKey = value.slice(1);
+    return process.env[envKey] ?? value;
+  }
+  return value;
+}
+
 function getConfig(): Config {
   try {
     if (fs.existsSync(CONFIG_PATH)) {
@@ -22,10 +30,8 @@ function getConfig(): Config {
 }
 
 function getLlamaServerUrl(): string {
-  return getConfig().url || DEFAULT_LLAMA_SERVER_URL;
+  return resolveValue(getConfig().url || DEFAULT_LLAMA_SERVER_URL);
 }
-
-const LLAMA_SERVER_URL = getLlamaServerUrl();
 
 interface LlamaServerModelStatus {
   value: string;
@@ -92,7 +98,7 @@ async function fetchModels(): Promise<ProviderModelConfig[]> {
   const timeoutId = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const response = await fetch(`${LLAMA_SERVER_URL}/v1/models`, { signal: controller.signal });
+    const response = await fetch(`${getLlamaServerUrl()}/v1/models`, { signal: controller.signal });
     if (!response.ok) throw new Error(`llama-server HTTP status: ${response.status}`);
 
     const data: LlamaServerResponse = await response.json();
@@ -107,7 +113,7 @@ async function fetchModels(): Promise<ProviderModelConfig[]> {
 
 export default async function (pi: ExtensionAPI) {
   pi.registerProvider("llama-server", {
-    baseUrl: `${LLAMA_SERVER_URL}/v1/`,
+    baseUrl: `${getLlamaServerUrl()}/v1/`,
     api: "openai-completions",
     apiKey: "llamaserver",
     models: await fetchModels().catch(() => [])

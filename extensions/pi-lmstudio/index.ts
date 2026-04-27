@@ -10,6 +10,14 @@ interface Config {
   url: string;
 }
 
+function resolveValue(value: string): string {
+  if (value.startsWith('$')) {
+    const envKey = value.slice(1);
+    return process.env[envKey] ?? value;
+  }
+  return value;
+}
+
 function getConfig(): Config {
   try {
     if (fs.existsSync(CONFIG_PATH)) {
@@ -22,10 +30,8 @@ function getConfig(): Config {
 }
 
 function getLmStudioUrl(): string {
-  return getConfig().url || DEFAULT_LM_STUDIO_URL;
+  return resolveValue(getConfig().url || DEFAULT_LM_STUDIO_URL);
 }
-
-const LM_STUDIO_URL = getLmStudioUrl();
 
 interface LMStudioLoadedInstance {
   id: string;
@@ -88,7 +94,7 @@ async function fetchModels(): Promise<ProviderModelConfig[]> {
   const timeoutId = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const response = await fetch(`${LM_STUDIO_URL}/api/v1/models`, { signal: controller.signal });
+    const response = await fetch(`${getLmStudioUrl()}/api/v1/models`, { signal: controller.signal });
     if (!response.ok) throw new Error(`LM Studio HTTP status: ${response.status}`);
 
     const data: LMStudioResponse = await response.json();
@@ -103,7 +109,7 @@ async function fetchModels(): Promise<ProviderModelConfig[]> {
 
 export default async function (pi: ExtensionAPI) {
   pi.registerProvider("lmstudio", {
-    baseUrl: `${LM_STUDIO_URL}/v1/`,
+    baseUrl: `${getLmStudioUrl()}/v1/`,
     api: "openai-completions",
     apiKey: "lmstudio",
     models: await fetchModels().catch(() => [])
@@ -119,7 +125,7 @@ export default async function (pi: ExtensionAPI) {
     if (event.message.role === "assistant" && !fetchedThisCycle) {
       fetchedThisCycle = true;
       pi.registerProvider("lmstudio", {
-        baseUrl: `${LM_STUDIO_URL}/v1/`,
+        baseUrl: `${getLmStudioUrl()}/v1/`,
         api: "openai-completions",
         apiKey: "lmstudio",
         models: await fetchModels().catch(() => [])

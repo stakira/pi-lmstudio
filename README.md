@@ -35,9 +35,13 @@ By default, the extension connects to LM Studio at `http://127.0.0.1:1234`.
 To customize the URL, create or modify `~/.pi/agent/lmstudio.json`:
 
 ```json
-{
-  "url": "http://127.0.0.1:1234"
-}
+{ "url": "http://127.0.0.1:1234" }
+```
+
+You can also use environment variables (prefix with `$`):
+
+```json
+{ "url": "$LM_STUDIO_URL" }
 ```
 
 ### llama-server
@@ -47,9 +51,13 @@ By default, the extension connects to llama-server at `http://127.0.0.1:8080`.
 To customize the URL, create or modify `~/.pi/agent/llama-server.json`:
 
 ```json
-{
-  "url": "http://127.0.0.1:8080"
-}
+{ "url": "http://127.0.0.1:8080" }
+```
+
+You can also use environment variables (prefix with `$`):
+
+```json
+{ "url": "$LLAMA_SERVER_URL" }
 ```
 
 ## Usage
