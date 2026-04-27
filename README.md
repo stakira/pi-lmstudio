@@ -16,7 +16,7 @@ Extensions for the [Pi coding agent](https://github.com/mario-zechner/pi-coding-
 
 ### For llama-server
 
-- **llama-server** installed and running.
+- **llama-server** installed and running in **router mode**.
 - Models loaded via the command line (e.g., `llama-server --models-preset ./my-models.ini`).
 - It is best to explicitly specify `ctx-size` in `models.ini` so the context length is reported correctly.
 
@@ -32,7 +32,7 @@ pi install npm:pi-lmstudio
 
 By default, the extension connects to LM Studio at `http://127.0.0.1:1234`.
 
-To customize the URL, create or modify `~/.pi/agent/lmstudio.json` after the first Pi launch:
+To customize the URL, create or modify `~/.pi/agent/lmstudio.json`:
 
 ```json
 {
@@ -44,7 +44,7 @@ To customize the URL, create or modify `~/.pi/agent/lmstudio.json` after the fir
 
 By default, the extension connects to llama-server at `http://127.0.0.1:8080`.
 
-To customize the URL, create or modify `~/.pi/agent/llama-server.json` after the first Pi launch:
+To customize the URL, create or modify `~/.pi/agent/llama-server.json`:
 
 ```json
 {
@@ -63,8 +63,6 @@ To customize the URL, create or modify `~/.pi/agent/llama-server.json` after the
    - Use the `/model` command.
    - Or use `Ctrl+P` (Command Palette) and search for your model.
    - Look for models prefixed with `lmstudio` or `llama-server`.
-
-3. **Automatic Refresh**: Each extension automatically refreshes its model list after every agent session (`agent_end`) to pick up any new models you've loaded.
 
 ## Notes
 
