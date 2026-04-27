@@ -8,7 +8,6 @@ const DEFAULT_LLAMA_SERVER_URL = "http://127.0.0.1:8080";
 
 interface Config {
   url: string;
-  models?: ProviderModelConfig[];
 }
 
 function getConfig(): Config {
@@ -20,23 +19,6 @@ function getConfig(): Config {
     console.error(`Failed to read llama-server config at ${CONFIG_PATH}:`, error);
   }
   return { url: DEFAULT_LLAMA_SERVER_URL };
-}
-
-function saveConfig(config: Config): void {
-  try {
-    const dir = path.dirname(CONFIG_PATH);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    const currentConfigStr = fs.existsSync(CONFIG_PATH) ? fs.readFileSync(CONFIG_PATH, "utf-8") : "";
-    const newConfigStr = JSON.stringify(config, null, 2);
-
-    if (currentConfigStr !== newConfigStr) {
-      fs.writeFileSync(CONFIG_PATH, newConfigStr);
-    }
-  } catch (error) {
-    console.error(`Failed to save llama-server config at ${CONFIG_PATH}:`, error);
-  }
 }
 
 function getLlamaServerUrl(): string {
@@ -103,11 +85,9 @@ function mapModels(models: LlamaServerModel[]): ProviderModelConfig[] {
 }
 
 /**
- * Fetch models from llama-server endpoint and cache them in Pi's format
+ * Fetch models from llama-server endpoint
  */
-async function fetchAndCacheModels(): Promise<ProviderModelConfig[]> {
-  const config = getConfig();
-
+async function fetchModels(): Promise<ProviderModelConfig[]> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -116,20 +96,7 @@ async function fetchAndCacheModels(): Promise<ProviderModelConfig[]> {
     if (!response.ok) throw new Error(`llama-server HTTP status: ${response.status}`);
 
     const data: LlamaServerResponse = await response.json();
-    const models = mapModels((data.data || []).filter(m => m.object === "model"));
-
-    const currentModelIds = new Set(config.models?.map(m => m.id) || []);
-    const newModelIds = new Set(models.map(m => m.id));
-
-    const isChanged = currentModelIds.size !== newModelIds.size ||
-      [...currentModelIds].some(id => !newModelIds.has(id));
-
-    if (isChanged) {
-      config.models = models;
-      saveConfig(config);
-    }
-
-    return models;
+    return mapModels((data.data || []).filter(m => m.object === "model"));
   } catch (error: any) {
     if (error.name === 'AbortError') throw new Error("llama-server request timed out");
     throw error;
@@ -138,32 +105,11 @@ async function fetchAndCacheModels(): Promise<ProviderModelConfig[]> {
   }
 }
 
-let models: ProviderModelConfig[] = [];
-
-async function registerModels(pi: ExtensionAPI): Promise<void> {
+export default async function (pi: ExtensionAPI) {
   pi.registerProvider("llama-server", {
     baseUrl: `${LLAMA_SERVER_URL}/v1/`,
     api: "openai-completions",
     apiKey: "llamaserver",
-    models: await fetchAndCacheModels()
-  });
-}
-
-export default function (pi: ExtensionAPI) {
-  const config = getConfig();
-
-  if (config.models && config.models.length > 0) {
-    pi.registerProvider("llama-server", {
-      baseUrl: `${LLAMA_SERVER_URL}/v1/`,
-      api: "openai-completions",
-      apiKey: "llamaserver",
-      models: config.models
-    });
-  } else {
-    registerModels(pi).catch(() => { });
-  }
-
-  pi.on("agent_end", async () => {
-    registerModels(pi).catch(() => { });
+    models: await fetchModels().catch(() => [])
   });
 }

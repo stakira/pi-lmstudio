@@ -8,7 +8,6 @@ const DEFAULT_LM_STUDIO_URL = "http://127.0.0.1:1234";
 
 interface Config {
   url: string;
-  models?: ProviderModelConfig[];
 }
 
 function getConfig(): Config {
@@ -20,23 +19,6 @@ function getConfig(): Config {
     console.error(`Failed to read LM Studio config at ${CONFIG_PATH}:`, error);
   }
   return { url: DEFAULT_LM_STUDIO_URL };
-}
-
-function saveConfig(config: Config): void {
-  try {
-    const dir = path.dirname(CONFIG_PATH);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    const currentConfigStr = fs.existsSync(CONFIG_PATH) ? fs.readFileSync(CONFIG_PATH, "utf-8") : "";
-    const newConfigStr = JSON.stringify(config, null, 2);
-
-    if (currentConfigStr !== newConfigStr) {
-      fs.writeFileSync(CONFIG_PATH, newConfigStr);
-    }
-  } catch (error) {
-    console.error(`Failed to save LM Studio config at ${CONFIG_PATH}:`, error);
-  }
 }
 
 function getLmStudioUrl(): string {
@@ -99,11 +81,9 @@ function mapModels(models: LMStudioModel[]): ProviderModelConfig[] {
 }
 
 /**
- * Fetch models from LM Studio endpoint and cache them in Pi's format
+ * Fetch models from LM Studio endpoint
  */
-async function fetchAndCacheModels(): Promise<ProviderModelConfig[]> {
-  const config = getConfig();
-
+async function fetchModels(): Promise<ProviderModelConfig[]> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -112,20 +92,7 @@ async function fetchAndCacheModels(): Promise<ProviderModelConfig[]> {
     if (!response.ok) throw new Error(`LM Studio HTTP status: ${response.status}`);
 
     const data: LMStudioResponse = await response.json();
-    const models = mapModels((data.models || []).filter(m => m.type === "llm"));
-
-    const currentModelIds = new Set(config.models?.map(m => m.id) || []);
-    const newModelIds = new Set(models.map(m => m.id));
-
-    const isChanged = currentModelIds.size !== newModelIds.size ||
-      [...currentModelIds].some(id => !newModelIds.has(id));
-
-    if (isChanged) {
-      config.models = models;
-      saveConfig(config);
-    }
-
-    return models;
+    return mapModels((data.models || []).filter(m => m.type === "llm"));
   } catch (error: any) {
     if (error.name === 'AbortError') throw new Error("LM Studio request timed out");
     throw error;
@@ -134,32 +101,29 @@ async function fetchAndCacheModels(): Promise<ProviderModelConfig[]> {
   }
 }
 
-let models: ProviderModelConfig[] = [];
-
-async function registerModels(pi: ExtensionAPI): Promise<void> {
+export default async function (pi: ExtensionAPI) {
   pi.registerProvider("lmstudio", {
     baseUrl: `${LM_STUDIO_URL}/v1/`,
     api: "openai-completions",
     apiKey: "lmstudio",
-    models: await fetchAndCacheModels()
+    models: await fetchModels().catch(() => [])
   });
-}
 
-export default function (pi: ExtensionAPI) {
-  const config = getConfig();
+  let fetchedThisCycle = false;
 
-  if (config.models && config.models.length > 0) {
-    pi.registerProvider("lmstudio", {
-      baseUrl: `${LM_STUDIO_URL}/v1/`,
-      api: "openai-completions",
-      apiKey: "lmstudio",
-      models: config.models
-    });
-  } else {
-    registerModels(pi).catch(() => { });
-  }
+  pi.on("agent_start", async () => {
+    fetchedThisCycle = false;
+  });
 
-  pi.on("agent_end", async () => {
-    registerModels(pi).catch(() => { });
+  pi.on("message_end", async (event, _ctx) => {
+    if (event.message.role === "assistant" && !fetchedThisCycle) {
+      fetchedThisCycle = true;
+      pi.registerProvider("lmstudio", {
+        baseUrl: `${LM_STUDIO_URL}/v1/`,
+        api: "openai-completions",
+        apiKey: "lmstudio",
+        models: await fetchModels().catch(() => [])
+      });
+    }
   });
 }
