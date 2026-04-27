@@ -70,6 +70,29 @@ function extractContextLength(args: string[]): number | undefined {
 }
 
 /**
+ * Check if reasoning/thinking is enabled (--reasoning on).
+ */
+function hasReasoning(args: string[]): boolean {
+  const idx = args.indexOf("--reasoning");
+  if (idx !== -1 && idx + 1 < args.length) {
+    return args[idx + 1].toLowerCase() === "on";
+  }
+  return false;
+}
+
+/**
+ * Check if vision/multimodal is enabled (--mmproj <path>).
+ * The presence of --mmproj with a value means the model supports image.
+ */
+function hasVision(args: string[]): boolean {
+  const idx = args.indexOf("--mmproj");
+  if (idx !== -1 && idx + 1 < args.length && args[idx + 1].length > 0) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Helper to map LlamaServerModel to Pi's model format
  */
 function mapModels(models: LlamaServerModel[]): ProviderModelConfig[] {
@@ -77,12 +100,15 @@ function mapModels(models: LlamaServerModel[]): ProviderModelConfig[] {
     .filter(m => m.id !== "default")
     .map(m => {
       const ctxSize = extractContextLength(m.status.args);
+      const reasoning = hasReasoning(m.status.args);
+      const vision = hasVision(m.status.args);
+      const input: ("text" | "image")[] = vision ? ["text", "image"] : ["text"];
       return {
         id: m.id,
         name: m.id,
-        reasoning: false,
+        reasoning,
         provider: "llama-server",
-        input: ["text"],
+        input,
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: ctxSize ?? 0,
         maxTokens: ctxSize ?? 0,
