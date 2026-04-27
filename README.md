@@ -17,7 +17,8 @@ Extensions for the [Pi coding agent](https://github.com/mario-zechner/pi-coding-
 ### For llama-server
 
 - **llama-server** installed and running.
-- Models loaded via the command line (e.g., `llama-server -m /path/to/model.gguf`).
+- Models loaded via the command line (e.g., `llama-server --models-preset ./my-models.ini`).
+- It is best to explicitly specify `ctx-size` in `models.ini` so the context length is reported correctly.
 
 ## Installation
 
