@@ -1,15 +1,23 @@
 # pi-lmstudio
 
-An extension for the [Pi coding agent](https://github.com/mario-zechner/pi-coding-agent) that integrates your local LLMs running in **LM Studio** directly into your AI-assisted coding workflow.
+Extensions for the [Pi coding agent](https://github.com/mario-zechner/pi-coding-agent) that integrate your local LLMs running in **LM Studio** or **llama-server** directly into your AI-assisted coding workflow.
 
 ## Prerequisites
 
 1. **Pi Coding Agent** installed.
-2. **LM Studio** installed and running.
-3. **LM Studio Local Server enabled**:
-   - Open LM Studio.
-   - Go to the **Local Server** tab.
-   - Turn on the switch.
+
+### For LM Studio
+
+- **LM Studio** installed and running.
+- **LM Studio Local Server enabled**:
+  - Open LM Studio.
+  - Go to the **Local Server** tab.
+  - Turn on the switch.
+
+### For llama-server
+
+- **llama-server** installed and running.
+- Models loaded via the command line (e.g., `llama-server -m /path/to/model.gguf`).
 
 ## Installation
 
@@ -19,13 +27,27 @@ pi install npm:pi-lmstudio
 
 ## Configuration
 
-By default, the extension connects to LM Studio default: `http://127.0.0.1:1234`
+### LM Studio
 
-To customize the url, create or modify after first pi launch: `~/.pi/agent/lmstudio.json`
+By default, the extension connects to LM Studio at `http://127.0.0.1:1234`.
+
+To customize the URL, create or modify `~/.pi/agent/lmstudio.json` after the first Pi launch:
 
 ```json
 {
-  "url": "http://127.0.0.1:1234",
+  "url": "http://127.0.0.1:1234"
+}
+```
+
+### llama-server
+
+By default, the extension connects to llama-server at `http://127.0.0.1:8080`.
+
+To customize the URL, create or modify `~/.pi/agent/llama-server.json` after the first Pi launch:
+
+```json
+{
+  "url": "http://127.0.0.1:8080"
 }
 ```
 
@@ -39,9 +61,16 @@ To customize the url, create or modify after first pi launch: `~/.pi/agent/lmstu
 2. **Select a Model**:
    - Use the `/model` command.
    - Or use `Ctrl+P` (Command Palette) and search for your model.
-   - Look for models prefixed with `lmstudio`.
+   - Look for models prefixed with `lmstudio` or `llama-server`.
 
-3. **Automatic Refresh**: The extension automatically refreshes its model list after every agent session (`agent_end`) to pick up any new models you've loaded in LM Studio.
+3. **Automatic Refresh**: Each extension automatically refreshes its model list after every agent session (`agent_end`) to pick up any new models you've loaded.
+
+## Notes
+
+### Context Length
+
+- **LM Studio**: The actual usable context length is only reported after the model is fully loaded. The extension reloads the model info to retrieve the accurate value.
+- **llama-server**: Context length is only available if you explicitly specify it in `models.ini` when launching the server.
 
 ## License
 
