@@ -1,24 +1,15 @@
 # pi-lmstudio
 
-Extensions for the [Pi coding agent](https://github.com/mario-zechner/pi-coding-agent) that integrate your local LLMs running in **LM Studio** or **llama-server** directly into your AI-assisted coding workflow.
+An extension for the [Pi coding agent](https://github.com/mario-zechner/pi-coding-agent) that integrates your local LLMs running in **LM Studio** directly into your AI-assisted coding workflow.
 
 ## Prerequisites
 
 1. **Pi Coding Agent** installed.
-
-### For LM Studio
-
-- **LM Studio** installed and running.
-- **LM Studio Local Server enabled**:
-  - Open LM Studio.
-  - Go to the **Local Server** tab.
-  - Turn on the switch.
-
-### For llama-server
-
-- **llama-server** installed and running in **router mode**.
-- Models loaded via the command line (e.g., `llama-server --models-preset ./my-models.ini`).
-- It is best to explicitly specify `ctx-size` in `models.ini` so the context length is reported correctly.
+2. **LM Studio** installed and running.
+3. **LM Studio Local Server enabled**:
+   - Open LM Studio.
+   - Go to the **Local Server** tab.
+   - Turn on the switch.
 
 ## Installation
 
@@ -27,8 +18,6 @@ pi install npm:pi-lmstudio
 ```
 
 ## Configuration
-
-### LM Studio
 
 By default, the extension connects to LM Studio at `http://127.0.0.1:1234`.
 
@@ -44,21 +33,23 @@ You can also use environment variables (prefix with `$`):
 { "url": "$LM_STUDIO_URL" }
 ```
 
-### llama-server
+#### Multiple servers
 
-By default, the extension connects to llama-server at `http://127.0.0.1:8080`.
-
-To customize the URL, create or modify `~/.pi/agent/llama-server.json`:
+To connect to several LM Studio instances at once (e.g. a desktop plus a remote GPU box), use the `urls` list instead. Each entry needs a `name`, and its models appear in the picker under `lmstudio/<name>`:
 
 ```json
-{ "url": "http://127.0.0.1:8080" }
+{
+  "urls": [
+    { "name": "desktop", "url": "http://127.0.0.1:1234" },
+    { "name": "gpu-box", "url": "$GPU_BOX_URL" }
+  ]
+}
 ```
 
-You can also use environment variables (prefix with `$`):
+Notes:
 
-```json
-{ "url": "$LLAMA_SERVER_URL" }
-```
+- Unreachable servers are skipped and picked up automatically once they come online (refreshed each turn).
+- If both `url` and `urls` are set, `urls` takes precedence and `url` is ignored.
 
 ## Usage
 
@@ -70,14 +61,13 @@ You can also use environment variables (prefix with `$`):
 2. **Select a Model**:
    - Use the `/model` command.
    - Or use `Ctrl+P` (Command Palette) and search for your model.
-   - Look for models prefixed with `lmstudio` or `llama-server`.
+   - Look for models prefixed with `lmstudio`.
 
 ## Notes
 
 ### Context Length
 
-- **LM Studio**: The actual usable context length is only reported after the model is fully loaded. The extension reloads the model info to retrieve the accurate value.
-- **llama-server**: Context length is only available if you explicitly specify it in `models.ini` when launching the server.
+- The actual usable context length is only reported after the model is fully loaded. The extension reloads the model info to retrieve the accurate value.
 
 ## License
 
