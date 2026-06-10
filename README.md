@@ -51,6 +51,22 @@ Notes:
 - Unreachable servers are skipped and picked up automatically once they come online (refreshed each turn).
 - If both `url` and `urls` are set, `urls` takes precedence and `url` is ignored.
 
+#### Authentication
+
+LM Studio can be configured to require a Bearer token for API access. When using the `urls` list form, add a `token` field to any entry that needs it. The `token` field accepts either a literal string or an environment variable reference (prefixed with `$`):
+
+```json
+{
+  "urls": [
+    { "name": "desktop", "url": "http://127.0.0.1:1234" },
+    { "name": "gpu-box", "url": "http://10.0.0.5:1234", "token": "my-secret-token" },
+    { "name": "remote", "url": "http://10.0.0.6:1234", "token": "$LM_STUDIO_TOKEN" }
+  ]
+}
+```
+
+The token is sent as an `Authorization: Bearer` header for both model discovery and chat requests.
+
 ## Usage
 
 1. **Launch Pi**: Extensions are automatically loaded on startup.

@@ -10,6 +10,7 @@ const PROVIDER_PREFIX = "lmstudio";
 interface ServerEntry {
   name: string;
   url: string;
+  token?: string;
 }
 
 interface Config {
@@ -21,6 +22,7 @@ interface Config {
 interface Server {
   providerName: string;
   url: string;
+  token?: string;
 }
 
 function resolveValue(value: string): string {
@@ -73,7 +75,7 @@ function resolveServers(): Server[] {
       seen.add(providerName);
       // Re-registering the same provider name overwrites, so keep the last entry.
       const existing = servers.findIndex(s => s.providerName === providerName);
-      const server = { providerName, url: resolveValue(entry.url) };
+      const server = { providerName, url: resolveValue(entry.url), token: entry.token ? resolveValue(entry.token) : undefined };
       if (existing !== -1) servers[existing] = server;
       else servers.push(server);
     }
@@ -140,12 +142,15 @@ function mapModels(models: LMStudioModel[], providerName: string): ProviderModel
 /**
  * Fetch models from an LM Studio endpoint
  */
-async function fetchModels(url: string, providerName: string): Promise<ProviderModelConfig[]> {
+async function fetchModels(url: string, providerName: string, token?: string): Promise<ProviderModelConfig[]> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
 
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   try {
-    const response = await fetch(`${url}/api/v1/models`, { signal: controller.signal });
+    const response = await fetch(`${url}/api/v1/models`, { signal: controller.signal, headers });
     if (!response.ok) throw new Error(`LM Studio HTTP status: ${response.status}`);
 
     const data: LMStudioResponse = await response.json();
@@ -173,7 +178,7 @@ export default async function (pi: ExtensionAPI) {
     const results = await Promise.allSettled(
       servers.map(async (s) => ({
         server: s,
-        models: await fetchModels(s.url, s.providerName),
+        models: await fetchModels(s.url, s.providerName, s.token),
       }))
     );
 
@@ -181,12 +186,18 @@ export default async function (pi: ExtensionAPI) {
     for (const result of results) {
       if (result.status !== "fulfilled") continue;
       const { server, models } = result.value;
-      pi.registerProvider(server.providerName, {
+      const providerConfig: any = {
         baseUrl: `${server.url}/v1/`,
         api: "openai-completions",
-        apiKey: "lmstudio",
         models,
-      });
+      };
+      if (server.token) {
+        providerConfig.apiKey = server.token;
+        providerConfig.authHeader = true;
+      } else {
+        providerConfig.apiKey = "lmstudio";
+      }
+      pi.registerProvider(server.providerName, providerConfig);
       nowRegistered.add(server.providerName);
     }
 
