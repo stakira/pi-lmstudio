@@ -2,6 +2,7 @@ import type { ExtensionAPI, ProviderModelConfig } from "@mariozechner/pi-coding-
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { Agent, fetch } from "undici";
 
 const CONFIG_PATH = path.join(os.homedir(), ".pi", "agent", "lmstudio.json");
 const DEFAULT_LM_STUDIO_URL = "http://127.0.0.1:1234";
@@ -16,6 +17,8 @@ interface ServerEntry {
 interface Config {
   url?: string;
   urls?: ServerEntry[];
+  timeout?: number;
+  livenessProbeTimeout?: number;
 }
 
 /** A single server to register: a provider name paired with its resolved base URL. */
@@ -140,26 +143,28 @@ function mapModels(models: LMStudioModel[], providerName: string): ProviderModel
 }
 
 /**
- * Fetch models from an LM Studio endpoint
+ * Fetch models from an LM Studio endpoint.
+ * Fails fast on unreachable hosts, firewalls, overlay networks, etc, 
+ * without leaving dangling sockets.
  */
-async function fetchModels(url: string, providerName: string, token?: string): Promise<ProviderModelConfig[]> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
-
+async function fetchModels(url: string, providerName: string, token?: string, timeout?: number, dispatcher?: Agent): Promise<ProviderModelConfig[]> {
+  const timeoutMs = timeout ?? 5000;
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   try {
-    const response = await fetch(`${url}/api/v1/models`, { signal: controller.signal, headers });
+    const response = await fetch(`${url}/api/v1/models`, {
+      signal: AbortSignal.timeout(timeoutMs),
+      headers,
+      dispatcher,
+    });
     if (!response.ok) throw new Error(`LM Studio HTTP status: ${response.status}`);
 
-    const data: LMStudioResponse = await response.json();
+    const data = await response.json() as LMStudioResponse;
     return mapModels((data.models || []).filter(m => m.type === "llm"), providerName);
   } catch (error: any) {
-    if (error.name === 'AbortError') throw new Error("LM Studio request timed out");
+    if (error.name === "AbortError") throw new Error("LM Studio request timed out");
     throw error;
-  } finally {
-    clearTimeout(timeoutId);
   }
 }
 
@@ -173,41 +178,48 @@ export default async function (pi: ExtensionAPI) {
    * was registered before but is now unreachable or gone from config is
    * unregistered.
    */
-  async function syncProviders() {
-    const servers = resolveServers();
-    const results = await Promise.allSettled(
-      servers.map(async (s) => ({
-        server: s,
-        models: await fetchModels(s.url, s.providerName, s.token),
-      }))
-    );
+  async function syncProviders(servers?: Server[]) {
+    const resolvedServers = servers ?? resolveServers();
+    const { timeout, livenessProbeTimeout } = getConfig();
+    const agent = new Agent({ connect: { timeout: livenessProbeTimeout ?? 500 } });
 
-    const nowRegistered = new Set<string>();
-    for (const result of results) {
-      if (result.status !== "fulfilled") continue;
-      const { server, models } = result.value;
-      const providerConfig: any = {
-        baseUrl: `${server.url}/v1/`,
-        api: "openai-completions",
-        models,
-      };
-      if (server.token) {
-        providerConfig.apiKey = server.token;
-        providerConfig.authHeader = true;
-      } else {
-        providerConfig.apiKey = "lmstudio";
-      }
-      pi.registerProvider(server.providerName, providerConfig);
-      nowRegistered.add(server.providerName);
-    }
+    try {
+      const results = await Promise.allSettled(
+        resolvedServers.map(async (s) => ({
+          server: s,
+          models: await fetchModels(s.url, s.providerName, s.token, timeout, agent),
+        }))
+      );
 
-    // Unregister providers that were up last cycle but dropped or disappeared.
-    for (const name of registered) {
-      if (!nowRegistered.has(name)) {
-        pi.unregisterProvider(name);
+      const nowRegistered = new Set<string>();
+      for (const result of results) {
+        if (result.status !== "fulfilled") continue;
+        const { server, models } = result.value;
+        const providerConfig: any = {
+          baseUrl: `${server.url}/v1/`,
+          api: "openai-completions",
+          models,
+        };
+        if (server.token) {
+          providerConfig.apiKey = server.token;
+          providerConfig.authHeader = true;
+        } else {
+          providerConfig.apiKey = "lmstudio";
+        }
+        pi.registerProvider(server.providerName, providerConfig);
+        nowRegistered.add(server.providerName);
       }
+
+      // Unregister providers that were up last cycle but dropped or disappeared.
+      for (const name of registered) {
+        if (!nowRegistered.has(name)) {
+          pi.unregisterProvider(name);
+        }
+      }
+      registered = nowRegistered;
+    } finally {
+      await agent.close();
     }
-    registered = nowRegistered;
   }
 
   await syncProviders();

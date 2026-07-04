@@ -15,5 +15,8 @@
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*"
+  },
+  "dependencies": {
+    "undici": "^7.0.0"
   }
 }
