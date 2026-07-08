@@ -33,6 +33,22 @@ You can also use environment variables (prefix with `$`):
 { "url": "$LM_STUDIO_URL" }
 ```
 
+### Timeouts
+
+Two timeout values control how long the extension waits for the LM Studio server:
+
+- **`livenessProbeTimeout`** — Socket-level reachability check (default: `500`ms). Before making an HTTP request, the extension quickly checks whether the server accepts TCP connections. If the server is unreachable, the probe fails fast and the request is skipped entirely.
+
+- **`timeout`** — HTTP request timeout for the model list fetch (default: `5000`ms). Only applies once the liveness probe has confirmed the server is reachable.
+
+```json
+{
+  "url": "http://192.168.1.64:1234",
+  "livenessProbeTimeout": 500, // You may need to increase this when LM Studio is outside the local network
+  "timeout": 5000
+}
+```
+
 #### Multiple servers
 
 To connect to several LM Studio instances at once (e.g. a desktop plus a remote GPU box), use the `urls` list instead. Each entry needs a `name`, and its models appear in the picker under `lmstudio/<name>`:
