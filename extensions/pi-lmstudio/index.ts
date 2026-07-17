@@ -126,17 +126,21 @@ interface LMStudioResponse {
 /**
  * Helper to map LMStudioModel to Pi's model format
  */
-function mapModels(models: LMStudioModel[], providerName: string): ProviderModelConfig[] {
-  return models.map(m => ({
-    id: m.key,
-    name: m.display_name,
-    reasoning: m.capabilities?.reasoning !== undefined,
-    provider: providerName,
-    input: m.capabilities?.vision ? ["text", "image"] : ["text"],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: m.loaded_instances[0]?.config.context_length ?? m.max_context_length,
-    maxTokens: m.max_context_length,
-  }));
+export function mapModels(models: LMStudioModel[], providerName: string): ProviderModelConfig[] {
+  return models.map(m => {
+    const contextWindow = m.loaded_instances[0]?.config.context_length ?? m.max_context_length;
+
+    return {
+      id: m.key,
+      name: m.display_name,
+      reasoning: m.capabilities?.reasoning !== undefined,
+      provider: providerName,
+      input: m.capabilities?.vision ? ["text", "image"] : ["text"],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow,
+      maxTokens: contextWindow,
+    };
+  });
 }
 
 /**
@@ -213,6 +217,12 @@ export default async function (pi: ExtensionAPI) {
   await syncProviders();
 
   let fetchedThisCycle = false;
+
+  pi.on("input", async (event) => {
+    if (!("streamingBehavior" in event) || event.streamingBehavior === undefined) {
+      await syncProviders();
+    }
+  });
 
   pi.on("agent_start", async () => {
     fetchedThisCycle = false;
