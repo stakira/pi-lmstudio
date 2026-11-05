@@ -51,6 +51,21 @@ Notes:
 - Unreachable servers are skipped and picked up automatically once they come online (refreshed each turn).
 - If both `url` and `urls` are set, `urls` takes precedence and `url` is ignored.
 
+#### Custom provider names
+
+Set `provider` to override the default `lmstudio/<name>` provider name. This is useful for clients such as T3 Code that split `provider/model` at the first slash and cannot select providers containing slashes:
+
+```json
+{
+  "urls": [
+    { "name": "desktop", "provider": "lmstudio-desktop", "url": "http://127.0.0.1:1234" },
+    { "name": "gpu-box", "provider": "lmstudio-gpu-box", "url": "$GPU_BOX_URL" }
+  ]
+}
+```
+
+Models then appear under `lmstudio-desktop` and `lmstudio-gpu-box`. Model IDs are unchanged. Use unique provider names and update any saved model selections that use the old prefix. Omitting `provider` preserves the existing behavior.
+
 #### Authentication
 
 LM Studio can be configured to require a Bearer token for API access. When using the `urls` list form, add a `token` field to any entry that needs it. The `token` field accepts either a literal string or an environment variable reference (prefixed with `$`):
