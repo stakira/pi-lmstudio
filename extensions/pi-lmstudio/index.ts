@@ -9,6 +9,7 @@ const PROVIDER_PREFIX = "lmstudio";
 
 interface ServerEntry {
   name: string;
+  provider?: string;
   url: string;
   token?: string;
 }
@@ -47,7 +48,7 @@ function getConfig(): Config {
 /**
  * Resolve the list of servers to register from the config.
  *
- * - `urls` (non-empty) wins: one provider per entry, named `lmstudio/<name>`.
+ * - `urls` (non-empty) wins: one provider per entry, named `lmstudio/<name>` unless overridden.
  *   If `url` is also present it is ignored (warn).
  * - `url` only: a single bare `lmstudio` provider.
  * - Empty `urls` or neither key: the default URL as a bare `lmstudio` provider.
@@ -68,9 +69,13 @@ function resolveServers(): Server[] {
         console.error("LM Studio config 'urls' entry missing 'name' or 'url'; skipping:", entry);
         continue;
       }
-      const providerName = `${PROVIDER_PREFIX}/${entry.name}`;
+      if (entry.provider !== undefined && (typeof entry.provider !== "string" || !entry.provider.trim())) {
+        console.error("LM Studio config 'urls' entry has an invalid 'provider'; skipping:", entry.name);
+        continue;
+      }
+      const providerName = entry.provider ?? `${PROVIDER_PREFIX}/${entry.name}`;
       if (seen.has(providerName)) {
-        console.error(`LM Studio config has duplicate server name '${entry.name}'; last one wins.`);
+        console.error(`LM Studio config has duplicate provider name '${providerName}'; last one wins.`);
       }
       seen.add(providerName);
       // Re-registering the same provider name overwrites, so keep the last entry.
